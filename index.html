@@ -2127,7 +2127,7 @@ const Guide = {
     Object.entries(st.fix || {}).forEach(([k, v]) => { const it = itemsOf(F.page).find(x => cname(x.el) === k); if (it) fset(it.el, it.gi, val(v)); });
     st.demo = Object.assign({}, st.demo, st.fix || {}); st.expect = null; renderPhone();
   },
-  auto() { const tg = G.tg; if (!tg) return; if (G.lesson && !tg.info) Track.ev('do_it_for_me', {lesson: G.lesson.id, step: G.i + 1}); if (tg.info) return this.next(); if (tg.auto) tg.auto(); },
+  auto() { const tg = G.tg; if (!tg) return; if (G.lesson && !tg.info && !tg.wait) Track.ev('do_it_for_me', {lesson: G.lesson.id, step: G.i + 1}); if (tg.info) return this.next(); if (tg.auto) tg.auto(); },
   sync() {
     $$('#phone .g-target').forEach(e => e.classList.remove('g-target'));
     if (this.running()) { let st = this.step(), guard = 0; while (st && st.k === 'type' && st.test() && !recentlyTyped() && guard++ < 5) { this.advance(); st = this.step(); } }
