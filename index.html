@@ -2334,10 +2334,11 @@ const Track = (() => {
   let uid = ''; try { uid = localStorage.getItem('desai-guide-uid') || ''; if (!uid) { uid = rid(); localStorage.setItem('desai-guide-uid', uid); } } catch (e) { uid = rid(); }
   const sid = rid(), q = []; let last = '';
   const device = () => matchMedia('(max-width:980px)').matches ? 'phone' : 'computer';
-  // sendBeacon where the browser allows it; otherwise a keepalive fetch (Safari and some privacy settings refuse beacons)
-  function send() { if (off || !q.length) return; const body = JSON.stringify(q.splice(0, 100)); let ok = false;
-    try { ok = navigator.sendBeacon && navigator.sendBeacon(url, new Blob([body], {type: 'text/plain'})); } catch (e) {}
-    if (!ok) try { fetch(url, {method: 'POST', mode: 'no-cors', keepalive: true, headers: {'Content-Type': 'text/plain'}, body}); } catch (e) {} }
+  // A cookie-free keepalive POST: sendBeacon would carry the viewer's Google cookies, and with several Google accounts signed in
+  // Apps Script answers with an account chooser instead of running, so the events were lost.
+  function send() { if (off || !q.length) return; const body = JSON.stringify(q.splice(0, 100));
+    try { fetch(url, {method: 'POST', mode: 'no-cors', credentials: 'omit', keepalive: true, headers: {'Content-Type': 'text/plain'}, body}); }
+    catch (e) { try { navigator.sendBeacon(url, new Blob([body], {type: 'text/plain'})); } catch (e2) {} } }
   function ev(event, x = {}) { if (off) return; q.push(Object.assign({uid, sid, event, role: ROLE, lang: G.lang, device: device()}, x)); if (q.length >= 20 || /session_start|lesson_complete|lesson_start/.test(event)) send(); }
   if (!off) { setInterval(send, 8000); addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') send(); }); addEventListener('pagehide', send); }
   if (QS.has('trackdebug')) console.log('[usage]', off ? 'off' : 'on', {file: location.protocol === 'file:', selftest: SELFTEST, notrack: QS.has('notrack'), dnt: navigator.doNotTrack});
