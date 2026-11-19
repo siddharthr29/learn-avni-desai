@@ -2332,16 +2332,21 @@ const Track = (() => {
   const url = DESAI.usageUrl, off = !url || location.protocol === 'file:' || SELFTEST || QS.has('notrack') || navigator.doNotTrack === '1';
   const rid = () => Math.random().toString(36).slice(2, 12) + Date.now().toString(36);
   let uid = ''; try { uid = localStorage.getItem('desai-guide-uid') || ''; if (!uid) { uid = rid(); localStorage.setItem('desai-guide-uid', uid); } } catch (e) { uid = rid(); }
-  const sid = rid(), q = []; let last = '';
+  const sid = rid(), q = []; let last = '', sent = 0, failed = 0, lastErr = '';
+  const why = !url ? 'no address set' : location.protocol === 'file:' ? 'opened as a file' : SELFTEST ? 'self-test' : QS.has('notrack') ? '?notrack in the address' : navigator.doNotTrack === '1' ? 'browser asks not to be tracked (Do Not Track)' : '';
   const device = () => matchMedia('(max-width:980px)').matches ? 'phone' : 'computer';
   // A cookie-free keepalive POST: sendBeacon would carry the viewer's Google cookies, and with several Google accounts signed in
   // Apps Script answers with an account chooser instead of running, so the events were lost.
   function send() { if (off || !q.length) return; const body = JSON.stringify(q.splice(0, 100));
-    try { fetch(url, {method: 'POST', mode: 'no-cors', credentials: 'omit', keepalive: true, headers: {'Content-Type': 'text/plain'}, body}); }
+    try { fetch(url, {method: 'POST', mode: 'no-cors', credentials: 'omit', keepalive: true, headers: {'Content-Type': 'text/plain'}, body}).then(() => { sent++; badge(); }, e => { failed++; lastErr = String(e && e.message || e); badge(); }); }
     catch (e) { try { navigator.sendBeacon(url, new Blob([body], {type: 'text/plain'})); } catch (e2) {} } }
   function ev(event, x = {}) { if (off) return; q.push(Object.assign({uid, sid, event, role: ROLE, lang: G.lang, device: device()}, x)); if (q.length >= 20 || /session_start|lesson_complete|lesson_start/.test(event)) send(); }
   if (!off) { setInterval(send, 8000); addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') send(); }); addEventListener('pagehide', send); }
-  if (QS.has('trackdebug')) console.log('[usage]', off ? 'off' : 'on', {file: location.protocol === 'file:', selftest: SELFTEST, notrack: QS.has('notrack'), dnt: navigator.doNotTrack});
+  // ?trackdebug shows what this browser does with the counts, on screen
+  function badge() { if (!QS.has('trackdebug')) return; let b = document.getElementById('trackbadge');
+    if (!b) { b = document.createElement('div'); b.id = 'trackbadge'; b.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:99;background:#212121;color:#fff;font:600 13px/1.4 system-ui;padding:9px 13px;border-radius:10px;max-width:360px'; document.body.appendChild(b); }
+    b.textContent = off ? 'Usage counting: OFF (' + why + ')' : `Usage counting: ON · sent ${sent} · failed ${failed}${lastErr ? ' · ' + lastErr : ''}`; }
+  addEventListener('DOMContentLoaded', () => setTimeout(badge, 300));
   return {ev, screen(n) { if (n !== last) { last = n; ev('screen', {screen: n, lesson: G.lesson && G.lesson.id}); } }, on: !off};
 })();
 
