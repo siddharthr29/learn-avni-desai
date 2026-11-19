@@ -551,6 +551,13 @@ button{font:inherit;cursor:pointer}
 .est{font-size:10.5px;font-weight:700;border-radius:999px;padding:2px 8px;white-space:nowrap}
 .est.ok{background:var(--ok-soft);color:var(--ok)}.est.nl{background:#eef1f4;color:var(--ink2)}.est.pl{background:var(--accent-soft);color:#8a5a00}
 
+/* overview beside the phone on wide screens (guide home only) */
+#overview{display:none}
+body.ovw #stage{display:flex;align-items:center;justify-content:center;gap:28px;padding:0 24px}
+body.ovw #overview{display:block;flex:0 1 430px;min-width:320px;max-height:calc(100dvh - 48px);overflow-y:auto;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px 20px 24px;box-shadow:0 10px 30px rgba(16,32,48,.08);scrollbar-width:thin}
+#overview h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);margin:22px 0 10px}
+#overview p{margin:0 0 10px;line-height:1.5;color:var(--ink2);font-size:14px}
+
 </style>
 </head>
 <body>
@@ -560,7 +567,7 @@ button{font:inherit;cursor:pointer}
     <div class="g-mode" id="gmode"></div>
     <div class="g-body" id="gbody"></div>
   </aside>
-  <main id="stage"><div id="phone-wrap"><div id="bezel"><div id="phone" aria-label="Practice phone"></div></div></div></main>
+  <main id="stage"><aside id="overview" aria-label="Overview"></aside><div id="phone-wrap"><div id="bezel"><div id="phone" aria-label="Practice phone"></div></div></div></main>
 </div>
 <div id="mbar"></div>
 <script>
@@ -2128,7 +2135,7 @@ const Guide = {
   /* ---------- left panel ---------- */
   render() {
     const st = this.step(), tg = G.tg;
-    const key = [G.lang, G.mode, G.page, G.enhArea, ROLE, G.lesson && G.lesson.id, G.i, G.fin, tg && tg.txt, tg && tg.wait, topScr().n, F ? F.page : ''].join('|');
+    const key = [matchMedia('(min-width:1180px)').matches, G.lang, G.mode, G.page, G.enhArea, ROLE, G.lesson && G.lesson.id, G.i, G.fin, tg && tg.txt, tg && tg.wait, topScr().n, F ? F.page : ''].join('|');
     if (key === G.key) return; G.key = key;
     $('#lang').innerHTML = LANGS.map(([k, n]) => `<button class="${G.lang === k ? 'on' : ''}" data-g="lang" data-v="${k}">${n}</button>`).join('');
     $('#gsub').textContent = L('Practice app for Desai Foundation Trust staff');
@@ -2136,7 +2143,10 @@ const Guide = {
       <button class="${G.mode === 'free' && G.page === 'lessons' ? 'on' : ''}" data-g="mode" data-v="free"><span class="emo">🖐️</span><span><b>${L('Free explore')}</b><small>${L('Tap anything you like')}</small></span></button>
       <button class="${G.page === 'enh' ? 'on' : ''}" data-g="enh"><span class="emo">✨</span><span><b>${L('What we added')}</b><small>${L('Beyond the scoping')}</small></span></button>`;
     const body = $('#gbody');
-    body.innerHTML = G.page === 'enh' ? this.enhHTML() : G.lesson ? this.lessonHTML(st, tg) : this.homeHTML();
+    const home = G.page !== 'enh' && !G.lesson, wide = matchMedia('(min-width:1180px)').matches;
+    body.innerHTML = G.page === 'enh' ? this.enhHTML() : G.lesson ? this.lessonHTML(st, tg) : this.homeHTML() + (wide ? '' : this.overviewHTML());
+    document.body.classList.toggle('ovw', home && wide);
+    $('#overview').innerHTML = home && wide ? this.overviewHTML() : '';
     this.mbar(st, tg);
     document.documentElement.style.setProperty('--mbar', ($('#mbar').offsetHeight || 0) + 'px');
     if (typeof fit === 'function') fit();
@@ -2176,7 +2186,15 @@ const Guide = {
     h += `<h1>${L('Learn the Desai Foundation app by using it')}</h1><p class="lead">${L('The phone on the right works like the real Avni app of Desai Foundation Trust: the same screens, forms, checks and cards. Pick a lesson and follow the glowing box.')}</p>
       <div class="how"><div><b>1</b>${L('Read one short step here')}</div><div><b>2</b>${L('Tap the glowing part on the phone')}</div><div><b>3</b>${L('Stuck? Press “Do it for me”')}</div></div>
       <div class="progress"><i style="width:${Math.round(doneN / LESSONS.length * 100)}%"></i></div><div class="muted">${doneN} / ${LESSONS.length} ${L('lessons completed')}</div>`;
-    h += `<h2>${L('Avni in one minute')}</h2><div class="gloss">${[['👤', 'Record', 'A person, a batch, an event or a plan. You register it once.'], ['📝', 'Form', 'Questions you fill for a record. Some questions appear only after an answer.'],
+    GROUPS.forEach(([g, en]) => { const ls = LESSONS.filter(l => l.g === g); if (!ls.length) return;
+      h += `<h2>${L(en)}</h2><div class="lgroup">` + ls.map(l => `<button class="lcard ${G.done[l.id] ? 'done' : ''}" data-g="start" data-v="${l.id}"><span class="le">${l.e}</span><span class="lt"><b>${esc(tx(l.t))}</b><span>${esc(tx(l.d))}</span></span><span class="lgo">${G.done[l.id] ? '✓ ' + L('Done') : L('Start') + ' ▸'}</span></button>`).join('') + `</div>`; });
+    h += `<div class="note">${L('All names here are made up for practice. Nothing you do on this page reaches the real app or the server.')}</div>
+      <p class="muted">${L('Practice date')}: ${D.long(T)} · ${L('Forms and rules from')}: ${esc(DESAI.source)} · <button class="linkbtn" data-g="reset">${L('Reset practice data')}</button></p>`;
+    return h;
+  },
+  overviewHTML() {
+    const node = (cls, i, en, sen) => `<div class="fnode ${cls}"><span class="fi">${i}</span><span><b>${L(en)}<span class="ftag ${cls === 'auto' || cls === 'dec' ? 'app' : 'you'}">${cls === 'auto' || cls === 'dec' ? L('App') : L('You')}</span></b><span>${L(sen)}</span></span></div>`, ar = '<div class="farrow"></div>';
+    let h = `<h2 style="margin-top:0">${L('Avni in one minute')}</h2><div class="gloss">${[['👤', 'Record', 'A person, a batch, an event or a plan. You register it once.'], ['📝', 'Form', 'Questions you fill for a record. Some questions appear only after an answer.'],
       ['📅', 'Visit', 'A form filled on a date: a camp, a screening, a follow-up. Some visits are planned by the app.'], ['🟦', 'Card', 'A coloured box on Home. The number tells how many records wait there.'], ['🔄', 'Sync', 'Sends your saved work to the server and brings new work. Needs internet.']]
       .map(([e, a, b]) => `<div><span>${e}</span><b>${L(a)}</b><small>${L(b)}</small></div>`).join('')}</div>`;
     h += `<h2>${L('Journey 1: a person at a health camp')}</h2><div class="flow">` +
@@ -2202,10 +2220,6 @@ const Guide = {
     h += `<div class="legend"><span><i style="background:#fff;border-color:var(--line)"></i>${L('You do this')}</span><span><i style="background:var(--auto-soft);border-color:#b9b9ee;border-style:dashed"></i>${L('The app does this by itself')}</span><span><i style="background:var(--accent-soft);border-color:#f3cf85"></i>${L('A check')}</span></div>`;
     h += `<h2>${L('Colours you will see')}</h2><div class="pillrow"><span class="pill"><i style="background:#009688">Due</i>${L('Do it today')}</span><span class="pill"><i style="background:#d0011b">Overdue</i>${L('It is late')}</span><span class="pill"><i style="background:#B8860B">Scheduled For</i>${L('Comes later')}</span></div>
       <div class="pillrow"><span class="pill"><span class="sw2" style="background:#EBF8E7"></span>${L('Green card: work for today')}</span><span class="pill"><span class="sw2" style="background:#F8EFE7"></span>${L('Brown card: late work')}</span><span class="pill"><span class="sw2" style="background:#E7F3F8"></span>${L('Blue card: totals')}</span></div>`;
-    GROUPS.forEach(([g, en]) => { const ls = LESSONS.filter(l => l.g === g); if (!ls.length) return;
-      h += `<h2>${L(en)}</h2><div class="lgroup">` + ls.map(l => `<button class="lcard ${G.done[l.id] ? 'done' : ''}" data-g="start" data-v="${l.id}"><span class="le">${l.e}</span><span class="lt"><b>${esc(tx(l.t))}</b><span>${esc(tx(l.d))}</span></span><span class="lgo">${G.done[l.id] ? '✓ ' + L('Done') : L('Start') + ' ▸'}</span></button>`).join('') + `</div>`; });
-    h += `<div class="note">${L('All names here are made up for practice. Nothing you do on this page reaches the real app or the server.')}</div>
-      <p class="muted">${L('Practice date')}: ${D.long(T)} · ${L('Forms and rules from')}: ${esc(DESAI.source)} · <button class="linkbtn" data-g="reset">${L('Reset practice data')}</button></p>`;
     return h;
   },
   enhHTML() {
@@ -2268,14 +2282,15 @@ window.addEventListener('error', e => window.__errs.push(e.message + ' @' + (e.f
 function fit() {
   const st = $('#stage'), bz = $('#bezel'), mobile = matchMedia('(max-width:980px)').matches;
   const bw = mobile ? 384 : 408, bh = mobile ? 832 : 856;
-  const W = st.clientWidth - (mobile ? 0 : 32), H = st.clientHeight - (mobile ? ($('#mbar').offsetHeight || 0) : 48);
+  const ov = $('#overview'), ow = document.body.classList.contains('ovw') && ov ? ov.offsetWidth + 28 : 0;
+  const W = st.clientWidth - (mobile ? 0 : 32) - ow, H = st.clientHeight - (mobile ? ($('#mbar').offsetHeight || 0) : 48);
   const k = Math.max(0.3, Math.min(1.12, W / bw, H / bh));
   bz.style.transform = `scale(${k})`;
   const w = $('#phone-wrap'); w.style.width = bw * k + 'px'; w.style.height = bh * k + 'px';
 }
 window.addEventListener('DOMContentLoaded', () => {
   Guide.reset('fe'); bindPhone(); Guide.bind(); renderPhone(false); fit();
-  window.addEventListener('resize', fit);
+  window.addEventListener('resize', () => { G.key = ''; Guide.render(); fit(); });
   setInterval(() => { const el = $('#phone .sb span'); if (el) { const n = new Date(); el.textContent = String(n.getHours()).padStart(2, '0') + ':' + String(n.getMinutes()).padStart(2, '0'); } }, 30000);
   if (QS.get('lang')) Guide.setLang(QS.get('lang'));
   if (QS.get('mode')) Guide.setMode(QS.get('mode'));
